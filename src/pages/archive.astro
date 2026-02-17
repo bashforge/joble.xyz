@@ -1,0 +1,134 @@
+---
+import Layout from "@layouts/Layout.astro";
+import Container from "@components/Container.astro";
+import Link from "@components/Link.astro";
+
+const archive = [
+  {
+    year: "2017 - 2018",
+    link: "https://web.archive.org/web/20180830023128/http://joble.in/about-joble.html",
+    image: "/images/2017-2018-archive.png",
+  },
+  {
+    year: "2016",
+    link: "https://web.archive.org/web/20160323133928/http://www.joble.in/",
+    image: "/images/2016-archive.png",
+  },
+  {
+    year: "2014 (March)",
+    link: "https://web.archive.org/web/20140314183536/http://joble.in/index.html",
+    image: "/images/2014-march-archive.png",
+  },
+  {
+    year: "2014 (Jan)",
+    link: "https://web.archive.org/web/20140117212624/http://joble.in/",
+    image: "/images/2014-jan-archive.png",
+  }
+];
+---
+
+<Layout title="Archive | Joble">
+  <Container>
+    <aside>
+      <h1 class="font-semibold text-black dark:text-white mb-8">
+        The Archive
+      </h1>
+
+      <section>
+        <article class="space-y-4">
+          <p>
+            This site now lives at <strong>Joble.xyz</strong> after spending many years on Joble.in.
+          </p>
+          <p>
+            Out of curiosity, I checked the Wayback Machine and was stunned to see how much it has evolved over time.
+            I recently moved everything to Astro, and I hope to keep this format for a long while.
+          </p>
+          <p>
+            Below are the older versions of this website, preserved thanks to the Wayback Machine.
+          </p>
+        </article>
+      </section>
+
+      <ul class="flex flex-col gap-6">
+        {archive.map((item, index) => (
+          <li class="flex items-center gap-4 border-b border-black/5 dark:border-white/10 pb-4 last:border-0">
+            
+            <button 
+              onclick={`document.getElementById('modal-${index}').showModal()`}
+              class="relative w-24 h-16 bg-neutral-100 dark:bg-neutral-800 rounded border border-black/10 dark:border-white/10 overflow-hidden shrink-0 group cursor-zoom-in"
+              aria-label={`View screenshot of ${item.year}`}
+            >
+              <img 
+                src={item.image} 
+                alt={`Screenshot ${item.year}`} 
+                class="w-full h-full object-cover" 
+              /> 
+            </button>
+
+            <div class="flex flex-col">
+              <Link href={item.link} external>
+                {item.year}
+              </Link>
+              <span class="text-xs text-neutral-500">View on Wayback Machine</span>
+            </div>
+
+            <dialog 
+              id={`modal-${index}`} 
+              class="m-auto fixed inset-0 backdrop:bg-black/80 bg-transparent p-0 overflow-hidden rounded-lg shadow-2xl max-w-5xl max-h-[90vh]"
+            >
+              <div class="relative bg-white dark:bg-black border border-white/10">
+                
+                <form method="dialog" class="absolute top-2 right-2 z-10">
+                  <button class="bg-black/50 hover:bg-black/70 text-white rounded-full w-8 h-8 flex items-center justify-center backdrop-blur-sm cursor-pointer transition-colors">
+                    ✕
+                  </button>
+                </form>
+                
+                <div class="min-w-[50vw] min-h-[50vh] flex items-center justify-center bg-neutral-900 text-neutral-500">
+                    
+                    <img 
+                      src={item.image} 
+                      alt={`Full size screenshot ${item.year}`} 
+                      class="max-w-full max-h-[85vh] object-contain" 
+                    />
+
+                </div>
+              </div>
+            </dialog>
+
+          </li>
+        ))}
+      </ul>
+      
+      <div class="mt-12">
+         <Link href="/">← Back</Link>
+      </div>
+
+    </aside>
+  </Container>
+</Layout>
+
+<script>
+  // Close modal when clicking outside
+  const dialogs = document.querySelectorAll('dialog');
+  dialogs.forEach(dialog => {
+    dialog.addEventListener('click', (event) => {
+      const rect = dialog.getBoundingClientRect();
+      const isInDialog = (rect.top <= event.clientY && event.clientY <= rect.top + rect.height &&
+        rect.left <= event.clientX && event.clientX <= rect.left + rect.width);
+      if (!isInDialog) {
+        dialog.close();
+      }
+    });
+  });
+</script>
+
+<style>
+  dialog[open] {
+    animation: fade-in 0.2s ease-out;
+  }
+  @keyframes fade-in {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+  }
+</style>
