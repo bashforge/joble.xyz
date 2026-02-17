@@ -1,4 +1,5 @@
 import { defineConfig } from "astro/config";
+import cloudflare from "@astrojs/cloudflare";
 import sitemap from "@astrojs/sitemap";
 import mdx from "@astrojs/mdx";
 import pagefind from "astro-pagefind";
@@ -16,4 +17,6 @@ export default defineConfig({
       theme: "css-variables",
     },
   },
+  output: "static",
+  adapter: cloudflare(),
 });
