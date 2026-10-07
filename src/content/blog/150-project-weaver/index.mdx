@@ -1,0 +1,72 @@
+---
+title: "Building a Personal RAG Assistant, Part 1: Scoping and Ingestion"
+date: "2026-10-07"
+description: "Why I'm building an AI assistant that actually knows my notes and my schedule, and the architecture decision that's already saving me from a mess."
+tags:
+  - ai-engineering
+  - rag
+  - build-log
+  - side-project
+---
+
+## The Problem I Actually Have
+
+I keep most of my thinking in Notion. I keep most of my commitments in Todoist. The two never talk to each other. A task due Thursday might reference a decision I wrote up three weeks ago in some completely different Notion page, and by the time the task comes due, the context that made it matter is gone.
+
+It's a small version of a problem I've watched play out at larger scale on every team I've worked with: information spreads across five different tools, and eventually nobody has the full picture. Solving it for myself first is just the fastest way to find out if the approach actually holds up.
+
+I don't need another chatbot that summarizes a PDF. I need something that knows my notes and my schedule well enough to surface what's relevant without me having to go dig for it.
+
+That's the project. A RAG assistant that ingests both sources, answers questions across them, and eventually flags what matters before I ask.
+
+## Why I'm Not Just Embedding Everything
+
+The obvious first move with a RAG project is to throw everything into a vector database and let semantic search sort it out. I decided against that for the Todoist half, and it's worth explaining why, because it's the decision that shaped everything else.
+
+Notion content is unstructured: long form notes, meeting summaries, half formed ideas. That's what embeddings are built for, finding the semantically closest match to a fuzzy question like "what did I decide about the client thing?"
+
+Todoist data is the opposite. A task has a due date, a project, a priority, a status. If I ask "what's overdue," I want a correct answer every time, not an approximate one. Embedding a due date and hoping cosine similarity surfaces the right rows is the wrong tool for that job.
+
+So the architecture splits cleanly. Notion goes through chunking and embedding, landing in Postgres with pgvector, retrieved by semantic similarity. Todoist gets stored as plain structured rows, retrieved with a direct query. A question that needs both, like "what tasks relate to my notes on the RAG project," pulls open tasks directly and searches related notes semantically, then merges the two before anything reaches the model.
+
+Written down, it sounds obvious. But it's the difference between a demo that looks good in a screen recording and a system that holds up the first time someone asks it something a real assistant would need to get exactly right.
+
+![Weaver architecture diagram](/images/2026-rag-assistant-architecture.svg)
+
+## Getting the First Pipeline Running
+
+Phase 1 is deliberately narrow: get both sources into storage reliably, and get a basic chat interface that can answer questions grounded in both.
+
+The Notion side pulls pages through the API, chunks them at a size that respects paragraph and heading boundaries rather than a raw character count (mid sentence chunks degrade retrieval quality noticeably), and embeds each chunk. The Todoist side is simpler: pull tasks, upsert them into a table, done.
+
+That was the plan. The Todoist side is where I hit the first snag, and it wasn't my code.
+
+I had Claude scaffold the Todoist client. It looked right and read clean. The first call came back with a 410 Gone.
+
+![Terminal showing a 410 Gone error from the Todoist API](/images/2026-weaver-410-error.png)
+
+Turns out Todoist shut down the version of their API that Claude wrote against back in February and replaced it with a new one. Different base URL, results come back in pages, and the IDs look different. Claude had no way of knowing, because all of that happened after it was trained.
+
+The fix was small. The lesson wasn't: code that looks right and code that is right aren't the same thing. I only caught it because I ran it against the real API right away instead of trusting it.
+
+With that sorted, all 24 of my tasks landed in Postgres, grouped by project.
+
+![Query result showing Todoist tasks grouped by project](/images/2026-weaver-todoist-sync.png)
+
+Then Notion. I didn't want to hand it page IDs one at a time, since the whole point is that it can see everything I've written, so the sync finds pages on its own. Each time a page is synced, its old chunks get deleted and fresh ones written. Without that, every re-sync would pile up duplicates.
+
+The first full run pulled in 95 pages and produced 139 chunks.
+
+![Terminal output showing 95 pages synced and 139 chunks stored](/images/2026-weaver-notion-sync.png)
+
+That's a low number for 95 pages, which tells me a lot of my workspace is nearly empty pages. It also only reads the top level of each page for now, so anything tucked inside a toggle gets skipped. I'll come back to that.
+
+Both sources are in Postgres now. Next is getting them to answer questions.
+
+## What's Next
+
+Phase 2 is where this stops being a chatbot and starts being an agent: a scheduled worker that decides what's worth telling me without being asked, and delivers it, starting with email and later through Alexa.
+
+The harder engineering problem from here isn't retrieval, it's judgment. Deciding what not to surface matters as much as deciding what to. That's usually the line between an AI feature that feels useful and one that just adds noise.
+
+More on that in the next post.
